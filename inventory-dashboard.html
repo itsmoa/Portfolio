@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Drone Inventory Analytics — Michael Akeredolu</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e13;
+      --surface: #111620;
+      --surface2: #181f2e;
+      --border: #1f2d42;
+      --ink: #d4e0f0;
+      --muted: #4d6080;
+      --accent: #00b4ff;
+      --accent-dim: rgba(0,180,255,0.08);
+      --warn: #f5a623;
+      --warn-dim: rgba(245,166,35,0.1);
+      --green: #00d68f;
+      --green-dim: rgba(0,214,143,0.08);
+      --red: #ff4f6a;
+      --red-dim: rgba(255,79,106,0.08);
+      --grid: rgba(31,45,66,0.6);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 1rem; }
+
+    .back-link {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    .topbar-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    .status-dot {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      color: var(--green);
+      letter-spacing: 0.08em;
+    }
+
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* HEADER STRIP */
+    .header-strip {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-left h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .header-left p {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .drone-selector {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ink);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.4rem 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.04em;
+    }
+
+    .drone-selector.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* DASHBOARD */
+    .dashboard {
+      padding: 1.25rem 2rem;
+      max-width: 1300px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* KPI */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .kpi-card.blue::after { background: var(--accent); }
+    .kpi-card.green::after { background: var(--green); }
+    .kpi-card.warn::after { background: var(--warn); }
+    .kpi-card.red::after { background: var(--red); }
+
+    .kpi-label {
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 0.25rem;
+    }
+
+    .kpi-sub {
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    .kpi-sub.good { color: var(--green); }
+    .kpi-sub.warn { color: var(--warn); }
+    .kpi-sub.bad { color: var(--red); }
+
+    /* MIDDLE ROW */
+    .mid-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.25rem;
+    }
+
+    /* CHART CARD */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    .card-sub {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      letter-spacing: 0.03em;
+    }
+
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* DRONE MAP */
+    .drone-map {
+      position: relative;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      height: 220px;
+      overflow: hidden;
+    }
+
+    .map-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+
+    .map-label {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .drone-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .drone-dot:hover { transform: translate(-50%, -50%) scale(1.5); }
+
+    .drone-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .drone-dot.scanning { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1.5s infinite; }
+    .drone-dot.charging { background: var(--warn); }
+    .drone-dot.error { background: var(--red); }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .drone-ping {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      transform: translate(-50%, -50%);
+      animation: ping 2s infinite;
+      opacity: 0;
+    }
+
+    @keyframes ping {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+      100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+    }
+
+    .drone-tooltip {
+      position: absolute;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.68rem;
+      color: var(--ink);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+    }
+
+    .drone-dot:hover .drone-tooltip { display: block; }
+
+    /* BOTTOM ROW */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    /* ALERT TABLE */
+    .alert-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .alert-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--surface2);
+      border-radius: 3px;
+      border-left: 2px solid transparent;
+      font-size: 0.75rem;
+    }
+
+    .alert-item.critical { border-left-color: var(--red); }
+    .alert-item.warning { border-left-color: var(--warn); }
+    .alert-item.info { border-left-color: var(--accent); }
+
+    .alert-icon { font-size: 0.85rem; flex-shrink: 0; }
+    .alert-text { color: var(--ink); line-height: 1.4; }
+    .alert-time { color: var(--muted); font-size: 0.65rem; margin-left: auto; white-space: nowrap; }
+
+    /* ACCURACY BARS */
+    .accuracy-list { display: flex; flex-direction: column; gap: 0.85rem; }
+
+    .acc-row { }
+    .acc-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.3rem;
+      font-size: 0.72rem;
+    }
+
+    .acc-zone { color: var(--muted); }
+    .acc-val { color: var(--ink); font-weight: 500; }
+
+    .acc-bar-bg {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .acc-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1s ease;
+    }
+
+    /* SCAN TABLE */
+    .scan-table { width: 100%; border-collapse: collapse; }
+
+    .scan-table th {
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 0 0 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .scan-table td {
+      font-size: 0.72rem;
+      color: var(--ink);
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .scan-table tr:last-child td { border-bottom: none; }
+
+    .status-tag {
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.45rem;
+      border-radius: 2px;
+    }
+
+    .status-tag.complete { background: var(--green-dim); color: var(--green); }
+    .status-tag.scanning { background: var(--accent-dim); color: var(--accent); }
+    .status-tag.queued { background: var(--surface2); color: var(--muted); }
+    .status-tag.error { background: var(--red-dim); color: var(--red); }
+
+    /* FOOTER */
+    .dash-note {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+      padding-bottom: 1.5rem;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 1000px) {
+      .kpi-row { grid-template-columns: repeat(3, 1fr); }
+      .mid-row { grid-template-columns: 1fr; }
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="back-link">&#8592; Portfolio</a>
+      <span style="color:var(--border)">|</span>
+      <span class="topbar-title">AI Drone Inventory Analytics</span>
+    </div>
+    <div class="status-dot">
+      <div class="dot"></div>
+      DRONE FLEET ONLINE
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="header-strip">
+    <div class="header-left">
+      <h1>Warehouse Inventory Intelligence</h1>
+      <p>// real-time scan data · Azure Data Services · Python ETL pipeline · Power BI reporting</p>
+    </div>
+    <div class="header-right">
+      <button class="drone-selector active" onclick="setWarehouse(this,'all')">All Sites</button>
+      <button class="drone-selector" onclick="setWarehouse(this,'WH-01')">WH-01 Sacramento</button>
+      <button class="drone-selector" onclick="setWarehouse(this,'WH-02')">WH-02 Fresno</button>
+      <button class="drone-selector" onclick="setWarehouse(this,'WH-03')">WH-03 Stockton</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-card blue">
+        <div class="kpi-label">SKUs Scanned Today</div>
+        <div class="kpi-value" id="kpi-skus">14,820</div>
+        <div class="kpi-sub good">98.8% of total inventory</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Scan Accuracy</div>
+        <div class="kpi-value" id="kpi-acc">99.3%</div>
+        <div class="kpi-sub good">+0.4% vs last week</div>
+      </div>
+      <div class="kpi-card warn">
+        <div class="kpi-label">Discrepancies Found</div>
+        <div class="kpi-value" id="kpi-disc">47</div>
+        <div class="kpi-sub warn">12 flagged for review</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Drones Active</div>
+        <div class="kpi-value" id="kpi-drones">9 / 12</div>
+        <div class="kpi-sub">3 charging · 0 errors</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Avg Scan Time</div>
+        <div class="kpi-value">4.2m</div>
+        <div class="kpi-sub good">Down from 6.1m last month</div>
+      </div>
+    </div>
+
+    <!-- MID ROW -->
+    <div class="mid-row">
+
+      <!-- SCAN VOLUME CHART -->
+      <div class="chart-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Daily Scan Volume vs Discrepancy Rate</div>
+            <div class="card-sub">// 30-day rolling window · automated via Python ETL</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="scanChart"></canvas>
+        </div>
+      </div>
+
+      <!-- DRONE MAP -->
+      <div class="chart-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Live Drone Positions</div>
+            <div class="card-sub">// WH-01 Sacramento floor plan</div>
+          </div>
+        </div>
+        <div class="drone-map">
+          <div class="map-grid"></div>
+          <div class="map-label">WAREHOUSE FLOOR · ZONE A-D</div>
+
+          <div class="drone-dot active" style="left:25%;top:30%">
+            <div class="drone-ping"></div>
+            <div class="drone-tooltip">DRONE-01 · Zone A · Scanning aisle 3</div>
+          </div>
+          <div class="drone-dot scanning" style="left:55%;top:45%">
+            <div class="drone-tooltip">DRONE-02 · Zone B · Active scan</div>
+          </div>
+          <div class="drone-dot scanning" style="left:70%;top:25%">
+            <div class="drone-tooltip">DRONE-03 · Zone C · Active scan</div>
+          </div>
+          <div class="drone-dot charging" style="left:15%;top:75%">
+            <div class="drone-tooltip">DRONE-04 · Charging bay · ETA 12min</div>
+          </div>
+          <div class="drone-dot active" style="left:45%;top:70%">
+            <div class="drone-ping"></div>
+            <div class="drone-tooltip">DRONE-05 · Zone D · Scanning aisle 7</div>
+          </div>
+          <div class="drone-dot scanning" style="left:82%;top:60%">
+            <div class="drone-tooltip">DRONE-06 · Zone D · Active scan</div>
+          </div>
+
+          <!-- LEGEND -->
+          <div style="position:absolute;bottom:0.75rem;right:0.75rem;display:flex;flex-direction:column;gap:0.3rem;">
+            <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.6rem;color:var(--muted)">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--accent)"></div> Navigating
+            </div>
+            <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.6rem;color:var(--muted)">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--green)"></div> Scanning
+            </div>
+            <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.6rem;color:var(--muted)">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--warn)"></div> Charging
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+
+      <!-- ALERTS -->
+      <div class="chart-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Live Discrepancy Alerts</div>
+            <div class="card-sub">// auto-flagged by Python pipeline</div>
+          </div>
+        </div>
+        <div class="alert-list">
+          <div class="alert-item critical">
+            <span class="alert-icon">⚠</span>
+            <span class="alert-text">SKU-48821 · Zone B · Count off by 14 units</span>
+            <span class="alert-time">2m ago</span>
+          </div>
+          <div class="alert-item warning">
+            <span class="alert-icon">△</span>
+            <span class="alert-text">SKU-20034 · Zone A · Misplaced pallet detected</span>
+            <span class="alert-time">8m ago</span>
+          </div>
+          <div class="alert-item warning">
+            <span class="alert-icon">△</span>
+            <span class="alert-text">SKU-71102 · Zone C · Low stock threshold hit</span>
+            <span class="alert-time">15m ago</span>
+          </div>
+          <div class="alert-item info">
+            <span class="alert-icon">i</span>
+            <span class="alert-text">Zone D scan complete · 2,410 SKUs verified</span>
+            <span class="alert-time">22m ago</span>
+          </div>
+          <div class="alert-item info">
+            <span class="alert-icon">i</span>
+            <span class="alert-text">Daily Power BI report pushed to ops team</span>
+            <span class="alert-time">6:00 AM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZONE ACCURACY -->
+      <div class="chart-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Accuracy by Zone</div>
+            <div class="card-sub">// SQL aggregation · updated hourly</div>
+          </div>
+        </div>
+        <div class="accuracy-list">
+          <div class="acc-row">
+            <div class="acc-top"><span class="acc-zone">Zone A · Aisles 1-4</span><span class="acc-val">99.7%</span></div>
+            <div class="acc-bar-bg"><div class="acc-bar-fill" style="width:99.7%;background:var(--green)"></div></div>
+          </div>
+          <div class="acc-row">
+            <div class="acc-top"><span class="acc-zone">Zone B · Aisles 5-8</span><span class="acc-val">98.9%</span></div>
+            <div class="acc-bar-bg"><div class="acc-bar-fill" style="width:98.9%;background:var(--green)"></div></div>
+          </div>
+          <div class="acc-row">
+            <div class="acc-top"><span class="acc-zone">Zone C · Aisles 9-12</span><span class="acc-val">99.4%</span></div>
+            <div class="acc-bar-bg"><div class="acc-bar-fill" style="width:99.4%;background:var(--green)"></div></div>
+          </div>
+          <div class="acc-row">
+            <div class="acc-top"><span class="acc-zone">Zone D · Aisles 13-16</span><span class="acc-val">97.8%</span></div>
+            <div class="acc-bar-bg"><div class="acc-bar-fill" style="width:97.8%;background:var(--warn)"></div></div>
+          </div>
+          <div class="acc-row">
+            <div class="acc-top"><span class="acc-zone">Cold Storage · Bay E</span><span class="acc-val">99.1%</span></div>
+            <div class="acc-bar-bg"><div class="acc-bar-fill" style="width:99.1%;background:var(--green)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT SCANS -->
+      <div class="chart-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Recent Scan Runs</div>
+            <div class="card-sub">// stored in Azure · queried via SQL</div>
+          </div>
+        </div>
+        <table class="scan-table">
+          <thead>
+            <tr>
+              <th>Drone</th>
+              <th>Zone</th>
+              <th>SKUs</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>DRONE-02</td>
+              <td>Zone B</td>
+              <td>3,210</td>
+              <td><span class="status-tag scanning">Scanning</span></td>
+            </tr>
+            <tr>
+              <td>DRONE-06</td>
+              <td>Zone D</td>
+              <td>1,840</td>
+              <td><span class="status-tag scanning">Scanning</span></td>
+            </tr>
+            <tr>
+              <td>DRONE-01</td>
+              <td>Zone A</td>
+              <td>2,980</td>
+              <td><span class="status-tag complete">Complete</span></td>
+            </tr>
+            <tr>
+              <td>DRONE-05</td>
+              <td>Zone D</td>
+              <td>2,410</td>
+              <td><span class="status-tag complete">Complete</span></td>
+            </tr>
+            <tr>
+              <td>DRONE-07</td>
+              <td>Zone C</td>
+              <td>0</td>
+              <td><span class="status-tag queued">Queued</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <div class="dash-note">
+      // Simulated dataset mirroring Gather AI deployment architecture · Azure Data Services · Python ETL · SQL aggregation · Power BI reporting pipeline
+    </div>
+
+  </div>
+
+<script>
+  // SCAN VOLUME CHART
+  const days = Array.from({length: 30}, (_, i) => {
+    const d = new Date(2024, 11, 1);
+    d.setDate(d.getDate() + i);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+
+  const scanVolume = [12400, 13100, 11800, 14200, 13800, 12900, 14500, 13200, 14800, 13600,
+                      14100, 12800, 13900, 14400, 13300, 14600, 13700, 14200, 14820, 13500,
+                      14100, 13800, 14300, 14700, 13400, 14500, 14200, 14800, 14600, 14820];
+
+  const discRate = [1.8, 1.5, 2.1, 1.2, 1.4, 1.9, 0.9, 1.6, 0.8, 1.3,
+                    1.1, 1.7, 1.0, 0.9, 1.5, 0.8, 1.2, 0.9, 0.7, 1.4,
+                    1.1, 0.8, 1.0, 0.7, 1.3, 0.9, 0.8, 0.6, 0.8, 0.7];
+
+  const ctx = document.getElementById('scanChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          label: 'SKUs Scanned',
+          data: scanVolume,
+          backgroundColor: 'rgba(0,180,255,0.2)',
+          borderColor: 'rgba(0,180,255,0.6)',
+          borderWidth: 1,
+          borderRadius: 2,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Discrepancy Rate %',
+          data: discRate,
+          type: 'line',
+          borderColor: 'rgba(245,166,35,0.8)',
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          pointBackgroundColor: 'rgba(245,166,35,0.8)',
+          tension: 0.4,
+          fill: false,
+          yAxisID: 'y2',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#4d6080', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 10, padding: 12 }
+        },
+        tooltip: {
+          backgroundColor: '#111620',
+          borderColor: '#1f2d42',
+          borderWidth: 1,
+          titleColor: '#d4e0f0',
+          bodyColor: '#4d6080',
+          titleFont: { family: 'IBM Plex Mono', size: 11 },
+          bodyFont: { family: 'IBM Plex Mono', size: 11 },
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(31,45,66,0.5)' },
+          ticks: {
+            color: '#4d6080',
+            font: { family: 'IBM Plex Mono', size: 9 },
+            maxRotation: 45,
+            callback: (val, idx) => idx % 5 === 0 ? days[idx] : ''
+          }
+        },
+        y: {
+          position: 'left',
+          grid: { color: 'rgba(31,45,66,0.5)' },
+          ticks: {
+            color: '#4d6080',
+            font: { family: 'IBM Plex Mono', size: 9 },
+            callback: v => `${(v/1000).toFixed(0)}k`
+          }
+        },
+        y2: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: {
+            color: '#4d6080',
+            font: { family: 'IBM Plex Mono', size: 9 },
+            callback: v => `${v}%`
+          }
+        }
+      }
+    }
+  });
+
+  // WAREHOUSE FILTER
+  const warehouseData = {
+    all:   { skus: '14,820', acc: '99.3%', disc: '47', drones: '9 / 12' },
+    'WH-01': { skus: '6,210', acc: '99.6%', disc: '18', drones: '4 / 4' },
+    'WH-02': { skus: '4,980', acc: '99.0%', disc: '16', drones: '3 / 4' },
+    'WH-03': { skus: '3,630', acc: '99.1%', disc: '13', drones: '2 / 4' },
+  };
+
+  function setWarehouse(btn, key) {
+    document.querySelectorAll('.drone-selector').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const d = warehouseData[key];
+    document.getElementById('kpi-skus').textContent = d.skus;
+    document.getElementById('kpi-acc').textContent = d.acc;
+    document.getElementById('kpi-disc').textContent = d.disc;
+    document.getElementById('kpi-drones').textContent = d.drones;
+  }
+</script>
+</body>
+</html>
