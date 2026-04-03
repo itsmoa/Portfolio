@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales Performance Dashboard — Michael Akeredolu</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #181c25;
+      --surface2: #1f2433;
+      --border: #2a2f3f;
+      --ink: #eceef2;
+      --muted: #7a8099;
+      --accent: #4ade80;
+      --accent-dim: rgba(74,222,128,0.12);
+      --red: #f87171;
+      --red-dim: rgba(248,113,113,0.12);
+      --blue: #60a5fa;
+      --blue-dim: rgba(96,165,250,0.12);
+      --yellow: #fbbf24;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .back-link {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    .topbar-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .last-updated {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* FILTERS */
+    .filters {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filter-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 0.25rem;
+    }
+
+    .filter-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.35rem 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover { border-color: var(--accent); color: var(--ink); }
+    .filter-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+    /* MAIN LAYOUT */
+    .dashboard {
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* KPI ROW */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .kpi-card:hover { border-color: var(--accent); }
+
+    .kpi-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.8rem;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-change {
+      font-size: 0.78rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .kpi-change.up { color: var(--accent); }
+    .kpi-change.down { color: var(--red); }
+
+    .kpi-sparkline {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 80px;
+      height: 40px;
+      opacity: 0.3;
+    }
+
+    /* CHART ROW */
+    .chart-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1rem;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
+    }
+
+    .chart-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1rem;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    .chart-subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+
+    /* BOTTOM ROW */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* TABLE */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      grid-column: span 2;
+    }
+
+    .table-header {
+      padding: 1.25rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1rem;
+      color: var(--ink);
+    }
+
+    .search-input {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      color: var(--ink);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.35rem 0.75rem;
+      outline: none;
+      width: 160px;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.6rem 1.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    thead th:hover { color: var(--ink); }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    tbody td {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.82rem;
+      color: var(--ink);
+    }
+
+    .status-pill {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.55rem;
+      border-radius: 20px;
+    }
+
+    .status-pill.high { background: var(--accent-dim); color: var(--accent); }
+    .status-pill.mid { background: var(--blue-dim); color: var(--blue); }
+    .status-pill.low { background: var(--red-dim); color: var(--red); }
+
+    /* REGION CARD */
+    .region-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+    }
+
+    .region-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1rem;
+      color: var(--ink);
+      margin-bottom: 1.25rem;
+    }
+
+    .region-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .region-item { }
+
+    .region-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.35rem;
+    }
+
+    .region-name {
+      font-size: 0.82rem;
+      color: var(--ink);
+    }
+
+    .region-val {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .region-bar-bg {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .region-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width 1s ease;
+    }
+
+    /* INSIGHT BOX */
+    .insight-box {
+      background: var(--accent-dim);
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      font-size: 0.82rem;
+      color: var(--accent);
+      line-height: 1.6;
+    }
+
+    .insight-label {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      opacity: 0.8;
+    }
+
+    /* FOOTER NOTE */
+    .dashboard-note {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .chart-row { grid-template-columns: 1fr; }
+      .bottom-row { grid-template-columns: 1fr; }
+      .table-card { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="portfolio.html" class="back-link">&#8592; Portfolio</a>
+      <span style="color:var(--border)">|</span>
+      <span class="topbar-title">Sales Performance Dashboard</span>
+    </div>
+    <div class="topbar-meta">
+      <span class="badge">Live Demo</span>
+      <span class="last-updated">Data: Jan 2024 — Dec 2024</span>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters">
+    <span class="filter-label">Period:</span>
+    <button class="filter-btn active" onclick="setFilter(this, 'all')">Full Year</button>
+    <button class="filter-btn" onclick="setFilter(this, 'h1')">H1</button>
+    <button class="filter-btn" onclick="setFilter(this, 'h2')">H2</button>
+    <button class="filter-btn" onclick="setFilter(this, 'q4')">Q4</button>
+
+    <span class="filter-label" style="margin-left:1rem">Category:</span>
+    <button class="filter-btn active" onclick="setCat(this, 'all')">All</button>
+    <button class="filter-btn" onclick="setCat(this, 'hardware')">Hardware</button>
+    <button class="filter-btn" onclick="setCat(this, 'software')">Software</button>
+    <button class="filter-btn" onclick="setCat(this, 'services')">Services</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="kpi-rev">$4.28M</div>
+        <div class="kpi-change up">&#9650; 18.4% vs last year</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Units Sold</div>
+        <div class="kpi-value" id="kpi-units">12,840</div>
+        <div class="kpi-change up">&#9650; 11.2% vs last year</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Order Value</div>
+        <div class="kpi-value" id="kpi-aov">$333</div>
+        <div class="kpi-change up">&#9650; 6.5% vs last year</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Underperforming SKUs</div>
+        <div class="kpi-value" id="kpi-under">7</div>
+        <div class="kpi-change down">&#9660; 3 flagged this quarter</div>
+      </div>
+    </div>
+
+    <!-- CHART ROW -->
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Monthly Revenue vs Target</div>
+            <div class="chart-subtitle">Actual performance against monthly targets</div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--accent)"></div>
+              Actual
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--muted)"></div>
+              Target
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="revenueChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Revenue by Category</div>
+            <div class="chart-subtitle">Share of total sales</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+
+      <!-- TABLE -->
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">Product Breakdown</div>
+          <input class="search-input" type="text" placeholder="Search products..." oninput="filterTable(this.value)"/>
+        </div>
+        <table id="productTable">
+          <thead>
+            <tr>
+              <th onclick="sortTable(0)">Product</th>
+              <th onclick="sortTable(1)">Category</th>
+              <th onclick="sortTable(2)">Revenue</th>
+              <th onclick="sortTable(3)">Units</th>
+              <th onclick="sortTable(4)">Performance</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- REGION -->
+      <div class="region-card">
+        <div class="region-title">Revenue by Region</div>
+        <div class="region-list" id="regionList"></div>
+        <div style="margin-top:1.25rem">
+          <div class="insight-box">
+            <div class="insight-label">Key Insight</div>
+            West Coast drives 38% of total revenue but has the lowest avg order value. Suggests high volume, lower margin sales mix worth investigating.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="dashboard-note">
+      Sample dataset built with Python (Pandas) and visualized with Chart.js. Mirrors the methodology used in the live Power BI project.
+    </div>
+
+  </div>
+
+<script>
+  // DATA
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const allData = {
+    actual: [310, 275, 340, 390, 420, 355, 380, 410, 445, 390, 480, 475],
+    target: [300, 300, 350, 370, 400, 380, 370, 400, 430, 410, 460, 460]
+  };
+
+  const h1Data = {
+    actual: [310, 275, 340, 390, 420, 355],
+    target: [300, 300, 350, 370, 400, 380]
+  };
+
+  const h2Data = {
+    actual: [380, 410, 445, 390, 480, 475],
+    target: [370, 400, 430, 410, 460, 460]
+  };
+
+  const q4Data = {
+    actual: [390, 480, 475],
+    target: [410, 460, 460]
+  };
+
+  const products = [
+    { name: 'ProScan X1', cat: 'hardware', rev: '$842K', units: 2410, perf: 'high' },
+    { name: 'DataSync Pro', cat: 'software', rev: '$610K', units: 3850, perf: 'high' },
+    { name: 'FieldKit 3', cat: 'hardware', rev: '$520K', units: 1240, perf: 'mid' },
+    { name: 'CloudBase Lite', cat: 'software', rev: '$390K', units: 2900, perf: 'mid' },
+    { name: 'InstallAssist', cat: 'services', rev: '$348K', units: 870, perf: 'high' },
+    { name: 'TrackPad S2', cat: 'hardware', rev: '$290K', units: 980, perf: 'low' },
+    { name: 'ReportGen API', cat: 'software', rev: '$188K', units: 590, perf: 'low' },
+  ];
+
+  const regions = [
+    { name: 'West Coast', val: '$1.62M', pct: 100 },
+    { name: 'Northeast', val: '$1.10M', pct: 68 },
+    { name: 'Midwest', val: '$820K', pct: 51 },
+    { name: 'Southeast', val: '$490K', pct: 30 },
+    { name: 'Southwest', val: '$248K', pct: 15 },
+  ];
+
+  // CHARTS
+  const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
+  const revenueChart = new Chart(ctxRevenue, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Actual',
+          data: allData.actual,
+          backgroundColor: 'rgba(74,222,128,0.7)',
+          borderRadius: 3,
+          borderSkipped: false,
+        },
+        {
+          label: 'Target',
+          data: allData.target,
+          type: 'line',
+          borderColor: 'rgba(122,128,153,0.6)',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          tension: 0.4,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1f2433',
+        borderColor: '#2a2f3f',
+        borderWidth: 1,
+        titleColor: '#eceef2',
+        bodyColor: '#7a8099',
+        callbacks: { label: ctx => ` $${ctx.raw}K` }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(42,47,63,0.6)' }, ticks: { color: '#7a8099', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(42,47,63,0.6)' }, ticks: { color: '#7a8099', font: { size: 11 }, callback: v => `$${v}K` } }
+      }
+    }
+  });
+
+  const ctxCat = document.getElementById('categoryChart').getContext('2d');
+  new Chart(ctxCat, {
+    type: 'doughnut',
+    data: {
+      labels: ['Hardware', 'Software', 'Services'],
+      datasets: [{
+        data: [1652, 1188, 1440],
+        backgroundColor: ['rgba(74,222,128,0.8)', 'rgba(96,165,250,0.8)', 'rgba(251,191,36,0.8)'],
+        borderColor: '#0f1117',
+        borderWidth: 3,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#7a8099', font: { size: 11 }, padding: 16, boxWidth: 10, boxHeight: 10 }
+        },
+        tooltip: {
+          backgroundColor: '#1f2433',
+          borderColor: '#2a2f3f',
+          borderWidth: 1,
+          titleColor: '#eceef2',
+          bodyColor: '#7a8099',
+          callbacks: { label: ctx => ` $${ctx.raw}K` }
+        }
+      }
+    }
+  });
+
+  // TABLE
+  function renderTable(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = data.map(p => `
+      <tr>
+        <td>${p.name}</td>
+        <td style="color:var(--muted);text-transform:capitalize">${p.cat}</td>
+        <td style="font-weight:500">${p.rev}</td>
+        <td>${p.units.toLocaleString()}</td>
+        <td><span class="status-pill ${p.perf}">${p.perf === 'high' ? 'Strong' : p.perf === 'mid' ? 'On Track' : 'Underperform'}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  renderTable(products);
+
+  function filterTable(q) {
+    const filtered = products.filter(p =>
+      p.name.toLowerCase().includes(q.toLowerCase()) ||
+      p.cat.toLowerCase().includes(q.toLowerCase())
+    );
+    renderTable(filtered);
+  }
+
+  function sortTable(col) {
+    const keys = ['name', 'cat', 'rev', 'units', 'perf'];
+    const sorted = [...products].sort((a, b) => {
+      const av = a[keys[col]], bv = b[keys[col]];
+      return typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    });
+    renderTable(sorted);
+  }
+
+  // REGIONS
+  function renderRegions() {
+    document.getElementById('regionList').innerHTML = regions.map(r => `
+      <div class="region-item">
+        <div class="region-row">
+          <span class="region-name">${r.name}</span>
+          <span class="region-val">${r.val}</span>
+        </div>
+        <div class="region-bar-bg">
+          <div class="region-bar-fill" style="width:${r.pct}%"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  renderRegions();
+
+  // FILTERS
+  let activeFilter = 'all';
+  let activeCat = 'all';
+
+  function setFilter(btn, val) {
+    document.querySelectorAll('.filters .filter-btn').forEach(b => {
+      if (['all','h1','h2','q4'].includes(b.getAttribute('onclick')?.match(/'(\w+)'/)?.[1])) b.classList.remove('active');
+    });
+    btn.classList.add('active');
+    activeFilter = val;
+    updateChart();
+  }
+
+  function setCat(btn, val) {
+    document.querySelectorAll('.filters .filter-btn').forEach(b => {
+      if (['all','hardware','software','services'].includes(b.getAttribute('onclick')?.match(/'(\w+)'/)?.[1])) b.classList.remove('active');
+    });
+    btn.classList.add('active');
+    activeCat = val;
+    const filtered = activeCat === 'all' ? products : products.filter(p => p.cat === activeCat);
+    renderTable(filtered);
+  }
+
+  function updateChart() {
+    const map = { all: allData, h1: h1Data, h2: h2Data, q4: q4Data };
+    const d = map[activeFilter];
+    const lbls = activeFilter === 'q4' ? ['Oct','Nov','Dec'] : activeFilter === 'h1' ? months.slice(0,6) : activeFilter === 'h2' ? months.slice(6) : months;
+    revenueChart.data.labels = lbls;
+    revenueChart.data.datasets[0].data = d.actual;
+    revenueChart.data.datasets[1].data = d.target;
+    revenueChart.update();
+  }
+</script>
+</body>
+</html>
