@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales Forecasting Dashboard — Michael Akeredolu</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8f6f2;
+      --surface: #ffffff;
+      --surface2: #f2efe9;
+      --border: #e4dfd6;
+      --ink: #1c1a17;
+      --muted: #7a7468;
+      --accent: #c8622a;
+      --accent-light: #fdf0e8;
+      --blue: #3b6fa0;
+      --blue-light: #eaf0f7;
+      --green: #3a7d5c;
+      --green-light: #e8f4ee;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 1rem; }
+
+    .back-link {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    .topbar-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      color: var(--ink);
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    /* HERO STRIP */
+    .hero-strip {
+      background: var(--ink);
+      color: #fff;
+      padding: 2rem 2rem 1.75rem;
+    }
+
+    .hero-strip-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .hero-text h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    .hero-text p {
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.55);
+      font-weight: 300;
+      max-width: 480px;
+    }
+
+    .model-pills {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .model-pill {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.75rem;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.65);
+      background: rgba(255,255,255,0.06);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .model-pill.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(200,98,42,0.12);
+    }
+
+    /* DASHBOARD */
+    .dashboard {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* KPI ROW */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .kpi-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.8rem;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 0.3rem;
+    }
+
+    .kpi-note {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .kpi-note.up { color: var(--green); font-weight: 500; }
+    .kpi-note.warn { color: var(--accent); font-weight: 500; }
+
+    /* MAIN CHART */
+    .main-chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.75rem;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .chart-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      color: var(--ink);
+      margin-bottom: 0.25rem;
+    }
+
+    .chart-subtitle {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .legend-line {
+      width: 20px;
+      height: 2px;
+      border-radius: 1px;
+    }
+
+    .legend-line.dashed {
+      background: repeating-linear-gradient(90deg, currentColor 0, currentColor 4px, transparent 4px, transparent 8px);
+    }
+
+    .chart-wrap { position: relative; height: 300px; }
+
+    /* CONFIDENCE BAND NOTE */
+    .confidence-note {
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .conf-swatch {
+      width: 14px; height: 8px;
+      background: rgba(59,111,160,0.15);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* BOTTOM GRID */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+    }
+
+    .card-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 0.95rem;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+
+    /* SEASONALITY */
+    .season-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+      margin-bottom: 0.5rem;
+    }
+
+    .season-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+
+    .season-bar {
+      width: 100%;
+      border-radius: 2px 2px 0 0;
+      transition: opacity 0.2s;
+    }
+
+    .season-bar:hover { opacity: 0.75; }
+
+    .season-label {
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .season-insight {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 300;
+      line-height: 1.6;
+      margin-top: 0.75rem;
+    }
+
+    /* ACCURACY TABLE */
+    .accuracy-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+
+    .accuracy-row:last-child { border-bottom: none; }
+
+    .accuracy-metric { color: var(--muted); }
+
+    .accuracy-val {
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .accuracy-bar-bg {
+      width: 60px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .accuracy-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--green);
+    }
+
+    /* QUARTERLY TABLE */
+    .q-table { width: 100%; border-collapse: collapse; }
+
+    .q-table th {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 0 0 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .q-table td {
+      font-size: 0.82rem;
+      color: var(--ink);
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .q-table tr:last-child td { border-bottom: none; }
+
+    .forecast-badge {
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      background: var(--blue-light);
+      color: var(--blue);
+      margin-left: 0.4rem;
+    }
+
+    .change-up { color: var(--green); font-weight: 500; }
+    .change-down { color: var(--accent); font-weight: 500; }
+
+    /* METHODOLOGY */
+    .method-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .method-item {
+      background: var(--surface2);
+      border-radius: 4px;
+      padding: 0.85rem 1rem;
+    }
+
+    .method-label {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .method-val {
+      font-size: 0.82rem;
+      color: var(--ink);
+    }
+
+    /* FOOTER */
+    .dash-note {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      padding-bottom: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .bottom-grid { grid-template-columns: 1fr; }
+      .hero-strip-inner { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="back-link">&#8592; Portfolio</a>
+      <span style="color:var(--border)">|</span>
+      <span class="topbar-title">Sales Forecasting Dashboard</span>
+    </div>
+    <span class="badge">Live Demo</span>
+  </div>
+
+  <!-- HERO STRIP -->
+  <div class="hero-strip">
+    <div class="hero-strip-inner">
+      <div class="hero-text">
+        <h1>Next-Quarter Sales Forecast</h1>
+        <p>Time-series model built with Python (Statsmodels). Switch between forecasting methods and see how each one handles seasonality and trend.</p>
+      </div>
+      <div class="model-pills">
+        <div class="model-pill active" onclick="setModel(this,'sarima')">SARIMA</div>
+        <div class="model-pill" onclick="setModel(this,'ets')">ETS Smoothing</div>
+        <div class="model-pill" onclick="setModel(this,'linear')">Linear Trend</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Q1 2025 Forecast</div>
+        <div class="kpi-value" id="kpi-forecast">$1.41M</div>
+        <div class="kpi-note up" id="kpi-growth">&#9650; 10.2% vs Q1 2024</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Forecast Accuracy (MAPE)</div>
+        <div class="kpi-value" id="kpi-mape">6.3%</div>
+        <div class="kpi-note up">Model error on holdout set</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Peak Month (Forecast)</div>
+        <div class="kpi-value">March</div>
+        <div class="kpi-note">Driven by seasonal uplift pattern</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Confidence Interval</div>
+        <div class="kpi-value" id="kpi-ci">95%</div>
+        <div class="kpi-note warn" id="kpi-ci-range">$1.28M to $1.54M</div>
+      </div>
+    </div>
+
+    <!-- MAIN CHART -->
+    <div class="main-chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Historical Sales vs Forecast</div>
+          <div class="chart-subtitle">24 months of actuals plus 3-month ahead forecast with confidence band</div>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-line" style="background:#1c1a17; height:2px;"></div>
+            Actual
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:#c8622a; height:2px;"></div>
+            Forecast
+          </div>
+          <div class="legend-item">
+            <div class="conf-swatch"></div>
+            95% CI
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="forecastChart"></canvas>
+      </div>
+      <div class="confidence-note">
+        <div class="conf-swatch"></div>
+        Shaded region shows the 95% confidence interval. Wider bands in later months reflect increasing forecast uncertainty.
+      </div>
+    </div>
+
+    <!-- BOTTOM GRID -->
+    <div class="bottom-grid">
+
+      <!-- SEASONALITY -->
+      <div class="card">
+        <div class="card-title">Seasonality Index</div>
+        <div class="season-bars" id="seasonBars"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:0.25rem">
+          <span style="font-size:0.62rem;color:var(--muted)">Jan</span>
+          <span style="font-size:0.62rem;color:var(--muted)">Dec</span>
+        </div>
+        <div class="season-insight" id="seasonInsight">
+          Q4 (Oct to Dec) shows the strongest seasonal uplift at 1.18x the annual average. Q1 dips slightly before recovering in March, a pattern consistent across both historical years.
+        </div>
+      </div>
+
+      <!-- MODEL ACCURACY -->
+      <div class="card">
+        <div class="card-title">Model Accuracy Metrics</div>
+        <div id="accuracyRows"></div>
+        <div class="method-grid" style="margin-top:1rem">
+          <div class="method-item">
+            <div class="method-label">Training Period</div>
+            <div class="method-val">Jan 2023 to Sep 2024</div>
+          </div>
+          <div class="method-item">
+            <div class="method-label">Holdout Period</div>
+            <div class="method-val">Oct to Dec 2024</div>
+          </div>
+          <div class="method-item">
+            <div class="method-label">Library</div>
+            <div class="method-val">Python Statsmodels</div>
+          </div>
+          <div class="method-item">
+            <div class="method-label">Seasonality</div>
+            <div class="method-val">Monthly (period = 12)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUARTERLY TABLE -->
+      <div class="card">
+        <div class="card-title">Quarterly Breakdown</div>
+        <table class="q-table">
+          <thead>
+            <tr>
+              <th>Quarter</th>
+              <th>Revenue</th>
+              <th>Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Q1 2024</td>
+              <td>$1.28M</td>
+              <td class="change-up">&#9650; 8.1%</td>
+            </tr>
+            <tr>
+              <td>Q2 2024</td>
+              <td>$1.17M</td>
+              <td class="change-down">&#9660; 3.2%</td>
+            </tr>
+            <tr>
+              <td>Q3 2024</td>
+              <td>$1.22M</td>
+              <td class="change-up">&#9650; 4.3%</td>
+            </tr>
+            <tr>
+              <td>Q4 2024</td>
+              <td>$1.61M</td>
+              <td class="change-up">&#9650; 14.9%</td>
+            </tr>
+            <tr>
+              <td>Q1 2025 <span class="forecast-badge">Forecast</span></td>
+              <td id="q1-forecast">$1.41M</td>
+              <td class="change-up" id="q1-change">&#9650; 10.2%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <div class="dash-note">
+      Built with Python (Pandas, Statsmodels). Historical data is illustrative sample data mirroring real forecasting methodology. Confidence intervals calculated via SARIMA prediction intervals.
+    </div>
+
+  </div>
+
+<script>
+  // HISTORICAL + FORECAST DATA
+  const historicalMonths = ['Jan 23','Feb 23','Mar 23','Apr 23','May 23','Jun 23','Jul 23','Aug 23','Sep 23','Oct 23','Nov 23','Dec 23','Jan 24','Feb 24','Mar 24','Apr 24','May 24','Jun 24','Jul 24','Aug 24','Sep 24','Oct 24','Nov 24','Dec 24'];
+  const historicalData =   [388, 342, 420, 408, 395, 362, 372, 385, 418, 492, 558, 524, 418, 378, 482, 398, 385, 387, 400, 412, 408, 512, 586, 510];
+
+  const forecastMonths = ['Jan 25','Feb 25','Mar 25'];
+
+  const models = {
+    sarima: {
+      forecast: [438, 462, 510],
+      upper:    [512, 545, 608],
+      lower:    [364, 379, 412],
+      mape: '6.3%',
+      rmse: '$28.4K',
+      mae: '$21.7K',
+      r2: '0.91',
+      forecast_total: '$1.41M',
+      growth: '&#9650; 10.2% vs Q1 2024',
+      ci: '$1.28M to $1.54M',
+      q1_total: '$1.41M',
+      q1_change: '&#9650; 10.2%',
+      seasonInsight: 'Q4 (Oct to Dec) shows the strongest seasonal uplift at 1.18x the annual average. Q1 dips slightly before recovering in March, a pattern consistent across both historical years.'
+    },
+    ets: {
+      forecast: [425, 448, 492],
+      upper:    [498, 528, 582],
+      lower:    [352, 368, 402],
+      mape: '7.8%',
+      rmse: '$34.1K',
+      mae: '$26.3K',
+      r2: '0.87',
+      forecast_total: '$1.37M',
+      growth: '&#9650; 7.0% vs Q1 2024',
+      ci: '$1.22M to $1.51M',
+      q1_total: '$1.37M',
+      q1_change: '&#9650; 7.0%',
+      seasonInsight: 'Exponential smoothing weights recent months more heavily. Q4 strength carries into Q1 2025 but the model is more conservative than SARIMA on seasonal peaks.'
+    },
+    linear: {
+      forecast: [445, 455, 465],
+      upper:    [510, 522, 534],
+      lower:    [380, 388, 396],
+      mape: '11.2%',
+      rmse: '$48.6K',
+      mae: '$38.4K',
+      r2: '0.74',
+      forecast_total: '$1.37M',
+      growth: '&#9650; 6.7% vs Q1 2024',
+      ci: '$1.17M to $1.57M',
+      q1_total: '$1.37M',
+      q1_change: '&#9650; 6.7%',
+      seasonInsight: 'Linear trend ignores seasonality, resulting in flatter forecasts. Higher error metrics confirm that seasonal patterns in this dataset are too significant to ignore.'
+    }
+  };
+
+  const seasonality = [0.92, 0.85, 1.08, 1.03, 0.98, 0.91, 0.94, 0.97, 1.04, 1.12, 1.22, 1.16];
+
+  let activeModel = 'sarima';
+  let forecastChart;
+
+  function buildChart(model) {
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    const m = models[model];
+
+    const allLabels = [...historicalMonths, ...forecastMonths];
+    const histLen = historicalData.length;
+
+    const actualDataset = {
+      label: 'Actual',
+      data: [...historicalData.map(v => v), null, null, null],
+      borderColor: '#1c1a17',
+      borderWidth: 2,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      tension: 0.3,
+      fill: false,
+    };
+
+    const forecastDataset = {
+      label: 'Forecast',
+      data: [...Array(histLen).fill(null), ...m.forecast],
+      borderColor: '#c8622a',
+      borderWidth: 2.5,
+      borderDash: [6, 3],
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#c8622a',
+      tension: 0.3,
+      fill: false,
+    };
+
+    // Connector from last actual to first forecast
+    const connectorDataset = {
+      label: 'connector',
+      data: [...Array(histLen - 1).fill(null), historicalData[histLen - 1], m.forecast[0], ...Array(2).fill(null)],
+      borderColor: '#c8622a',
+      borderWidth: 1.5,
+      borderDash: [3, 3],
+      pointRadius: 0,
+      tension: 0,
+      fill: false,
+    };
+
+    const upperDataset = {
+      label: 'Upper CI',
+      data: [...Array(histLen).fill(null), ...m.upper],
+      borderColor: 'transparent',
+      backgroundColor: 'rgba(59,111,160,0.12)',
+      pointRadius: 0,
+      fill: '+1',
+      tension: 0.3,
+    };
+
+    const lowerDataset = {
+      label: 'Lower CI',
+      data: [...Array(histLen).fill(null), ...m.lower],
+      borderColor: 'transparent',
+      backgroundColor: 'rgba(59,111,160,0.12)',
+      pointRadius: 0,
+      fill: false,
+      tension: 0.3,
+    };
+
+    if (forecastChart) forecastChart.destroy();
+
+    forecastChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: allLabels,
+        datasets: [upperDataset, lowerDataset, actualDataset, forecastDataset, connectorDataset]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#fff',
+            borderColor: '#e4dfd6',
+            borderWidth: 1,
+            titleColor: '#1c1a17',
+            bodyColor: '#7a7468',
+            callbacks: {
+              label: ctx => {
+                if (ctx.dataset.label === 'connector' || ctx.dataset.label === 'Upper CI' || ctx.dataset.label === 'Lower CI') return null;
+                if (ctx.raw === null) return null;
+                return ` ${ctx.dataset.label}: $${ctx.raw}K`;
+              }
+            },
+            filter: item => item.raw !== null && item.dataset.label !== 'connector'
+          },
+          annotation: {}
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(228,223,214,0.6)' },
+            ticks: {
+              color: '#7a7468',
+              font: { size: 10 },
+              maxRotation: 45,
+              callback: (val, idx) => idx % 3 === 0 ? historicalMonths.concat(forecastMonths)[idx] : ''
+            }
+          },
+          y: {
+            grid: { color: 'rgba(228,223,214,0.6)' },
+            ticks: {
+              color: '#7a7468',
+              font: { size: 11 },
+              callback: v => `$${v}K`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderSeasonality() {
+    const max = Math.max(...seasonality);
+    const bars = document.getElementById('seasonBars');
+    const colors = seasonality.map(v => v >= 1.1 ? '#c8622a' : v >= 1.0 ? '#3a7d5c' : '#9ea4b4');
+    bars.innerHTML = seasonality.map((v, i) => `
+      <div class="season-bar-wrap" title="Index: ${v}x">
+        <div class="season-bar" style="height:${(v/max)*100}%;background:${colors[i]};"></div>
+      </div>
+    `).join('');
+  }
+
+  function renderAccuracy(model) {
+    const m = models[model];
+    const metrics = [
+      { label: 'MAPE', val: m.mape, pct: 100 - parseFloat(m.mape) },
+      { label: 'RMSE', val: m.rmse, pct: 85 },
+      { label: 'MAE', val: m.mae, pct: 82 },
+      { label: 'R²', val: m.r2, pct: parseFloat(m.r2) * 100 }
+    ];
+    document.getElementById('accuracyRows').innerHTML = metrics.map(m => `
+      <div class="accuracy-row">
+        <span class="accuracy-metric">${m.label}</span>
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <div class="accuracy-bar-bg"><div class="accuracy-bar-fill" style="width:${m.pct}%"></div></div>
+          <span class="accuracy-val">${m.val}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateKPIs(model) {
+    const m = models[model];
+    document.getElementById('kpi-forecast').textContent = m.forecast_total;
+    document.getElementById('kpi-growth').innerHTML = m.growth;
+    document.getElementById('kpi-mape').textContent = m.mape;
+    document.getElementById('kpi-ci-range').textContent = m.ci;
+    document.getElementById('q1-forecast').textContent = m.q1_total;
+    document.getElementById('q1-change').innerHTML = m.q1_change;
+    document.getElementById('seasonInsight').textContent = m.seasonInsight;
+  }
+
+  function setModel(btn, model) {
+    document.querySelectorAll('.model-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    activeModel = model;
+    buildChart(model);
+    renderAccuracy(model);
+    updateKPIs(model);
+  }
+
+  // INIT
+  buildChart('sarima');
+  renderSeasonality();
+  renderAccuracy('sarima');
+</script>
+</body>
+</html>
